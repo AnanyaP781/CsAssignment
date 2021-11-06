@@ -5,6 +5,7 @@ int main(void)
 {
   char *args[MAX LINE/2 + 1]; /* command line arguments */
   int should run = 1; /* flag to determine when to exit program */
+  pid t pid;
   while (should run)
    {
     printf("osh>");
@@ -14,7 +15,23 @@ int main(void)
 * (1) fork a child process using fork()
 * (2) the child process will invoke execvp()
 * (3) parent will invoke wait() unless command included &
-*/
+*/   
+{
+
+/* fork a child process */
+pid = fork();
+if (pid < 0) { /* error occurred */
+fprintf(stderr, "Fork Failed");
+return 1;
+}
+else if (pid == 0) { /* child process */
+execlp("/bin/ls","ls",NULL);
+}
+else { /* parent process */
+/* parent will wait for the child to complete */
+wait(NULL);
+printf("Child Complete");
+}
    }
 return 0;
 }
