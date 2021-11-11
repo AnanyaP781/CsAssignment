@@ -16,20 +16,41 @@
 #define MAX_HISTORY_SIZE 128
 #define MAX_COMMAND_NAME_LENGTH 128
 
-#define PROMPT_FORMAT "%F %T "
-#define PROMPT_MAX_LENGTH 30
-
 #define TOFILE ">"
 #define FROMFILE "<"
-#define PIPE_OPT "|"
+#define PIPE "|"
 
-int running = 1;
-
+//Function declarations
+void init_shell();
+void remove_end_of_line(char *line);
+void read_input(char *line);
+void parse_command(char *input_string, char **argv, int *wait);
+int is_redirect(char **argv);
+int is_pipe(char **argv);
+void parse_redirect(char **argv, char **redirect_argv, int redirect_index);
+void parse_redirect(char **argv, char **redirect_argv, int redirect_index);
+void parse_pipe(char **argv, char **child1_argv, char **child2_argv, int pipe_index);
+void exec_child(char **argv);
+void exec_child_inputred(char **argv, char **dir);
+void exec_child_outputred(char **argv, char **dir);
+void exec_child_pipe(char **argv_in, char **argv_out);
+void set_prev_command(char *history, char *line);
+char *get_prev_command(char *history);
+int history_feature(char *history, char **redir_args);
+int redirect(char **args, char **redir_argv);
+int simple_shell_pipe(char **args);
+int num_builtins();
+int simple_shell_cd(char **argv);
+int simple_shell_help(char **argv);
+int simple_shell_exit(char **args);
+void exec_command(char **args, char **redir_argv, int wait, int res);
 int simple_shell_cd(char **args);
 int simple_shell_help(char **args);
 int simple_shell_exit(char **args);
 void exec_command(char **args, char **redir_argv, int wait, int res);
 
+//Global variables
+int running = 1;
 //Opening message
 void init_shell()
 {
@@ -40,7 +61,8 @@ void init_shell()
 }
 
 //replaces the end of the string with '\0'
-void remove_end_of_line(char *line) {
+void remove_end_of_line(char *line) 
+{
     int i = 0;
     while (line[i] != '\n') {
         i++;
@@ -51,7 +73,7 @@ void remove_end_of_line(char *line) {
 
 //Funtion to read the input
 //Does not return any value
-void read_line(char *line) 
+void read_input(char *line) 
 {
     char *ret = fgets(line, MAX_LINE_LENGTH, stdin);
 
@@ -117,7 +139,7 @@ int is_pipe(char **argv)
     int i = 0;
     while (argv[i] != NULL) 
     {
-        if (strcmp(argv[i], PIPE_OPT) == 0) 
+        if (strcmp(argv[i], PIPE) == 0) 
         {
             return i;
         }
@@ -125,6 +147,8 @@ int is_pipe(char **argv)
     }
     return 0; 
 }
+
+//Parses the < or > symbol from the input
 void parse_redirect(char **argv, char **redirect_argv, int redirect_index)
 {
     redirect_argv[0] = strdup(argv[redirect_index]);
@@ -267,7 +291,9 @@ char *get_prev_command(char *history)
     return history;
 }
 
-int simple_shell_history(char *history, char **redir_args) {
+//Implementing the history feature
+int history_feature(char *history, char **redir_args) 
+{
     char *cur_args[BUFFER_SIZE];
     char cur_command[MAX_LINE_LENGTH];
     int t_wait;
@@ -284,11 +310,10 @@ int simple_shell_history(char *history, char **redir_args) {
     return res;
 }
 
-int simple_shell_redirect(char **args, char **redir_argv) 
+//Determines whether the redirect is input or output
+int redirect(char **args, char **redir_argv) 
 {
-    // printf("%s", "Executing redirect\n");
     int redir_op_index = is_redirect(args);
-    // printf("%d", redir_op_index);
     if (redir_op_index != 0) 
     {
         parse_redirect(args, redir_argv, redir_op_index);
@@ -304,6 +329,7 @@ int simple_shell_redirect(char **args, char **redir_argv)
     }
     return 0;
 }
+
 //Checks the presence of pipes
 //Reurns 1 if pipes are present else returns 0
 int simple_shell_pipe(char **args) 
@@ -327,16 +353,21 @@ char *builtin_str[] = {
     "help",
     "exit"
 };
+
+//Builtin commands function declaration
 int (*builtin_func[])(char **) = {
     &simple_shell_cd,
     &simple_shell_help,
     &simple_shell_exit
 };
-int simple_shell_num_builtins() 
+
+//Counts the number of builtin functions
+int num_builtins() 
 {
     return sizeof(builtin_str) / sizeof(char *);
 }
 
+//Builtin command \cd
 int simple_shell_cd(char **argv) 
 {
     if (argv[1] == NULL) 
@@ -350,6 +381,8 @@ int simple_shell_cd(char **argv)
     }
     return 1;
 }
+
+//Builtin function help
 int simple_shell_help(char **argv) 
 {
     static char help_team_information[] =
@@ -385,7 +418,10 @@ int simple_shell_help(char **argv)
     }
     return 0;
 }
-int simple_shell_exit(char **args) {
+
+//Builtin Function exit
+int simple_shell_exit(char **args) 
+{
     running = 0;
     return running;
 }
@@ -396,7 +432,7 @@ int simple_shell_exit(char **args) {
 void exec_command(char **args, char **redir_argv, int wait, int res) 
 {
     //Checks for the presence of builtin commands
-    for (int i = 0; i < simple_shell_num_builtins(); i++) 
+    for (int i = 0; i < num_builtins(); i++) 
     {
         if (strcmp(args[0], builtin_str[i]) == 0) 
         {
@@ -415,7 +451,7 @@ void exec_command(char **args, char **redir_argv, int wait, int res)
         {
             //Child process
             if (res == 0) 
-                res = simple_shell_redirect(args, redir_argv);
+                res = redirect(args, redir_argv);
             if (res == 0) 
                 res = simple_shell_pipe(args);
             if (res == 0) 
@@ -459,14 +495,13 @@ int main(void)
         fflush(stdout);
 
         
-        read_line(line);
+        read_input(line);
         strcpy(t_line, line);
         parse_command(line, args, &wait);
 
-        // Thực thi lệnh
         if (strcmp(args[0], "!!") == 0) 
         {
-            res = simple_shell_history(history, redir_argv);
+            res = history_feature(history, redir_argv);
         } else 
         {
             set_prev_command(history, t_line);
